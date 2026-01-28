@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useNavigate } from "react-router-dom";
 import Layout from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,26 +13,76 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Eye, EyeOff, Mail, Lock, User, Building2, Phone, MapPin } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
+import { useToast } from "@/hooks/use-toast";
 
 const Register = () => {
   const { userType } = useParams<{ userType: string }>();
+  const navigate = useNavigate();
+  const { signUp } = useAuth();
+  const { toast } = useToast();
+  
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [agreeTerms, setAgreeTerms] = useState(false);
+
+  // Form fields
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [phone, setPhone] = useState("");
+  
+  // Worker fields
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [primarySkill, setPrimarySkill] = useState("");
+  
+  // Agency fields
+  const [companyName, setCompanyName] = useState("");
+  const [contactPerson, setContactPerson] = useState("");
+  const [position, setPosition] = useState("");
+  const [country, setCountry] = useState("");
 
   const isWorker = userType === "worker";
   const title = isWorker ? "Create Worker Account" : "Register Your Agency";
   const subtitle = isWorker
     ? "Start your journey to finding opportunities abroad"
     : "Connect with skilled Ethiopian professionals";
-  const icon = isWorker ? User : Building2;
-  const Icon = icon;
+  const Icon = isWorker ? User : Building2;
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!agreeTerms) return;
+    if (!agreeTerms) {
+      toast({
+        title: "Please accept terms",
+        description: "You must agree to the Terms of Service and Privacy Policy.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsLoading(true);
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+
+    const role = isWorker ? "worker" : "agency";
+    const profileData = isWorker
+      ? { firstName, lastName, phone, primarySkill }
+      : { companyName, contactPerson, position, phone, country };
+
+    const { error } = await signUp(email, password, role as "worker" | "agency", profileData);
+
+    if (error) {
+      toast({
+        title: "Registration failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    } else {
+      toast({
+        title: "Account created!",
+        description: "Welcome to HireEthiopian. Your account has been created successfully.",
+      });
+      navigate(isWorker ? "/dashboard/worker" : "/dashboard/agency");
+    }
+
     setIsLoading(false);
   };
 
@@ -58,11 +108,23 @@ const Register = () => {
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div className="space-y-2">
                       <Label htmlFor="firstName">First Name</Label>
-                      <Input id="firstName" placeholder="Enter first name" required />
+                      <Input 
+                        id="firstName" 
+                        placeholder="Enter first name" 
+                        value={firstName}
+                        onChange={(e) => setFirstName(e.target.value)}
+                        required 
+                      />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="lastName">Last Name</Label>
-                      <Input id="lastName" placeholder="Enter last name" required />
+                      <Input 
+                        id="lastName" 
+                        placeholder="Enter last name" 
+                        value={lastName}
+                        onChange={(e) => setLastName(e.target.value)}
+                        required 
+                      />
                     </div>
                   </div>
 
@@ -75,6 +137,8 @@ const Register = () => {
                         type="email"
                         placeholder="Enter your email"
                         className="pl-10"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
                         required
                       />
                     </div>
@@ -89,6 +153,8 @@ const Register = () => {
                         type="tel"
                         placeholder="+251 9XX XXX XXX"
                         className="pl-10"
+                        value={phone}
+                        onChange={(e) => setPhone(e.target.value)}
                         required
                       />
                     </div>
@@ -96,7 +162,7 @@ const Register = () => {
 
                   <div className="space-y-2">
                     <Label htmlFor="skill">Primary Skill</Label>
-                    <Select required>
+                    <Select value={primarySkill} onValueChange={setPrimarySkill} required>
                       <SelectTrigger>
                         <SelectValue placeholder="Select your primary skill" />
                       </SelectTrigger>
@@ -124,6 +190,8 @@ const Register = () => {
                         id="companyName"
                         placeholder="Enter company name"
                         className="pl-10"
+                        value={companyName}
+                        onChange={(e) => setCompanyName(e.target.value)}
                         required
                       />
                     </div>
@@ -132,11 +200,23 @@ const Register = () => {
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div className="space-y-2">
                       <Label htmlFor="contactName">Contact Person</Label>
-                      <Input id="contactName" placeholder="Full name" required />
+                      <Input 
+                        id="contactName" 
+                        placeholder="Full name" 
+                        value={contactPerson}
+                        onChange={(e) => setContactPerson(e.target.value)}
+                        required 
+                      />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="position">Position</Label>
-                      <Input id="position" placeholder="Job title" required />
+                      <Input 
+                        id="position" 
+                        placeholder="Job title" 
+                        value={position}
+                        onChange={(e) => setPosition(e.target.value)}
+                        required 
+                      />
                     </div>
                   </div>
 
@@ -149,6 +229,8 @@ const Register = () => {
                         type="email"
                         placeholder="Enter business email"
                         className="pl-10"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
                         required
                       />
                     </div>
@@ -163,6 +245,8 @@ const Register = () => {
                         type="tel"
                         placeholder="Business phone"
                         className="pl-10"
+                        value={phone}
+                        onChange={(e) => setPhone(e.target.value)}
                         required
                       />
                     </div>
@@ -172,7 +256,7 @@ const Register = () => {
                     <Label htmlFor="country">Country</Label>
                     <div className="relative">
                       <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      <Select required>
+                      <Select value={country} onValueChange={setCountry} required>
                         <SelectTrigger className="pl-10">
                           <SelectValue placeholder="Select country" />
                         </SelectTrigger>
@@ -202,6 +286,8 @@ const Register = () => {
                     type={showPassword ? "text" : "password"}
                     placeholder="Create a password"
                     className="pl-10 pr-10"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
                     required
                   />
                   <button

@@ -1,27 +1,50 @@
 import { useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useNavigate } from "react-router-dom";
 import Layout from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Eye, EyeOff, Mail, Lock, User, Building2 } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
+import { useToast } from "@/hooks/use-toast";
 
 const Login = () => {
   const { userType } = useParams<{ userType: string }>();
+  const navigate = useNavigate();
+  const { signIn } = useAuth();
+  const { toast } = useToast();
+  
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
 
   const isWorker = userType === "worker";
   const title = isWorker ? "Worker Login" : "Agency Login";
-  const icon = isWorker ? User : Building2;
-  const Icon = icon;
+  const Icon = isWorker ? User : Building2;
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsLoading(true);
-    // Simulate login
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+
+    const { error } = await signIn(email, password);
+
+    if (error) {
+      toast({
+        title: "Login failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    } else {
+      toast({
+        title: "Welcome back!",
+        description: "You have successfully logged in.",
+      });
+      // Navigate to appropriate dashboard based on user type
+      navigate(isWorker ? "/dashboard/worker" : "/dashboard/agency");
+    }
+
     setIsLoading(false);
   };
 
@@ -52,6 +75,8 @@ const Login = () => {
                     type="email"
                     placeholder="Enter your email"
                     className="pl-10"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
                     required
                   />
                 </div>
@@ -66,6 +91,8 @@ const Login = () => {
                     type={showPassword ? "text" : "password"}
                     placeholder="Enter your password"
                     className="pl-10 pr-10"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
                     required
                   />
                   <button
