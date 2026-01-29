@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Eye, EyeOff, Mail, Lock, User, Building2 } from "lucide-react";
+import { Eye, EyeOff, Mail, Lock, User, Building2, Shield } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 
@@ -21,8 +21,9 @@ const Login = () => {
   const [password, setPassword] = useState("");
 
   const isWorker = userType === "worker";
-  const title = isWorker ? "Worker Login" : "Agency Login";
-  const Icon = isWorker ? User : Building2;
+  const isAdmin = userType === "admin";
+  const title = isAdmin ? "Admin Login" : isWorker ? "Worker Login" : "Agency Login";
+  const Icon = isAdmin ? Shield : isWorker ? User : Building2;
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -42,7 +43,8 @@ const Login = () => {
         description: "You have successfully logged in.",
       });
       // Navigate to appropriate dashboard based on user type
-      navigate(isWorker ? "/dashboard/worker" : "/dashboard/agency");
+      const dashboardPath = isAdmin ? "/dashboard/admin" : isWorker ? "/dashboard/worker" : "/dashboard/agency";
+      navigate(dashboardPath);
     }
 
     setIsLoading(false);
@@ -130,30 +132,34 @@ const Login = () => {
             </form>
 
             {/* Footer */}
-            <div className="mt-6 text-center">
-              <p className="text-sm text-muted-foreground">
-                Don't have an account?{" "}
-                <Link
-                  to={`/register/${userType}`}
-                  className="text-primary font-medium hover:underline"
-                >
-                  Sign up
-                </Link>
-              </p>
-            </div>
+            {!isAdmin && (
+              <div className="mt-6 text-center">
+                <p className="text-sm text-muted-foreground">
+                  Don't have an account?{" "}
+                  <Link
+                    to={`/register/${userType}`}
+                    className="text-primary font-medium hover:underline"
+                  >
+                    Sign up
+                  </Link>
+                </p>
+              </div>
+            )}
 
             {/* Switch Login Type */}
-            <div className="mt-4 pt-4 border-t border-border text-center">
-              <p className="text-sm text-muted-foreground">
-                {isWorker ? "Are you an agency?" : "Are you a worker?"}{" "}
-                <Link
-                  to={isWorker ? "/login/agency" : "/login/worker"}
-                  className="text-primary font-medium hover:underline"
-                >
-                  Login here
-                </Link>
-              </p>
-            </div>
+            {!isAdmin && (
+              <div className="mt-4 pt-4 border-t border-border text-center">
+                <p className="text-sm text-muted-foreground">
+                  {isWorker ? "Are you an agency?" : "Are you a worker?"}{" "}
+                  <Link
+                    to={isWorker ? "/login/agency" : "/login/worker"}
+                    className="text-primary font-medium hover:underline"
+                  >
+                    Login here
+                  </Link>
+                </p>
+              </div>
+            )}
           </div>
         </div>
       </div>
