@@ -12,7 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
-import { Search, Eye, MoreHorizontal, CheckCircle, XCircle } from "lucide-react";
+import { Search, Eye, MoreHorizontal, CheckCircle, XCircle, Trash2 } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -53,13 +53,16 @@ interface AgencyProfile {
   created_at: string;
 }
 
+type DialogAction = "verify" | "revoke" | "delete";
+
 export function AgenciesTable() {
   const [agencies, setAgencies] = useState<AgencyProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedAgency, setSelectedAgency] = useState<AgencyProfile | null>(null);
-  const [verifyDialogOpen, setVerifyDialogOpen] = useState(false);
-  const [agencyToVerify, setAgencyToVerify] = useState<{ agency: AgencyProfile; action: "verify" | "revoke" } | null>(null);
+  const [actionDialogOpen, setActionDialogOpen] = useState(false);
+  const [agencyAction, setAgencyAction] = useState<{ agency: AgencyProfile; action: DialogAction } | null>(null);
+  const [processing, setProcessing] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -82,39 +85,65 @@ export function AgenciesTable() {
     }
   };
 
-  const handleVerificationAction = async () => {
-    if (!agencyToVerify) return;
+  const handleAction = async () => {
+    if (!agencyAction) return;
 
+    setProcessing(true);
     try {
-      const newStatus = agencyToVerify.action === "verify";
-      const { error } = await supabase
-        .from("agency_profiles")
-        .update({ is_verified: newStatus })
-        .eq("id", agencyToVerify.agency.id);
+      if (agencyAction.action === "delete") {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) {
+          throw new Error("Not authenticated");
+        }
 
-      if (error) throw error;
+        const response = await supabase.functions.invoke("delete-user", {
+          body: { userId: agencyAction.agency.user_id },
+        });
 
-      toast({
-        title: newStatus ? "Agency Verified" : "Verification Revoked",
-        description: `${agencyToVerify.agency.company_name} has been ${newStatus ? "verified" : "unverified"}.`,
-      });
+        if (response.error) {
+          throw new Error(response.error.message || "Failed to delete agency");
+        }
 
-      // Update local state
-      setAgencies((prev) =>
-        prev.map((a) =>
-          a.id === agencyToVerify.agency.id ? { ...a, is_verified: newStatus } : a
-        )
-      );
+        toast({
+          title: "Agency Deleted",
+          description: `${agencyAction.agency.company_name} has been removed from the platform.`,
+        });
+
+        // Remove from local state
+        setAgencies((prev) => prev.filter((a) => a.id !== agencyAction.agency.id));
+      } else {
+        // Verification action
+        const newStatus = agencyAction.action === "verify";
+        const { error } = await supabase
+          .from("agency_profiles")
+          .update({ is_verified: newStatus })
+          .eq("id", agencyAction.agency.id);
+
+        if (error) throw error;
+
+        toast({
+          title: newStatus ? "Agency Verified" : "Verification Revoked",
+          description: `${agencyAction.agency.company_name} has been ${newStatus ? "verified" : "unverified"}.`,
+        });
+
+        // Update local state
+        setAgencies((prev) =>
+          prev.map((a) =>
+            a.id === agencyAction.agency.id ? { ...a, is_verified: newStatus } : a
+          )
+        );
+      }
     } catch (error) {
-      console.error("Error updating verification:", error);
+      console.error("Error performing action:", error);
       toast({
         title: "Error",
-        description: "Failed to update verification status.",
+        description: error instanceof Error ? error.message : "Failed to perform action.",
         variant: "destructive",
       });
     } finally {
-      setVerifyDialogOpen(false);
-      setAgencyToVerify(null);
+      setProcessing(false);
+      setActionDialogOpen(false);
+      setAgencyAction(null);
     }
   };
 
@@ -139,6 +168,34 @@ export function AgenciesTable() {
     return countryMap[country] || country;
   };
 
+  const getDialogContent = () => {
+    if (!agencyAction) return { title: "", description: "", buttonText: "", isDestructive: false };
+
+    switch (agencyAction.action) {
+      case "verify":
+        return {
+          title: "Verify Agency",
+          description: `Are you sure you want to verify ${agencyAction.agency.company_name}? This will give them full access to the platform.`,
+          buttonText: "Verify",
+          isDestructive: false,
+        };
+      case "revoke":
+        return {
+          title: "Revoke Verification",
+          description: `Are you sure you want to revoke verification for ${agencyAction.agency.company_name}? This will limit their platform access.`,
+          buttonText: "Revoke",
+          isDestructive: true,
+        };
+      case "delete":
+        return {
+          title: "Delete Agency",
+          description: `Are you sure you want to delete ${agencyAction.agency.company_name}? This action cannot be undone and will permanently remove their account and all associated data.`,
+          buttonText: "Delete",
+          isDestructive: true,
+        };
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -146,6 +203,8 @@ export function AgenciesTable() {
       </div>
     );
   }
+
+  const dialogContent = getDialogContent();
 
   return (
     <div className="space-y-4">
@@ -223,8 +282,8 @@ export function AgenciesTable() {
                           {agency.is_verified ? (
                             <DropdownMenuItem
                               onClick={() => {
-                                setAgencyToVerify({ agency, action: "revoke" });
-                                setVerifyDialogOpen(true);
+                                setAgencyAction({ agency, action: "revoke" });
+                                setActionDialogOpen(true);
                               }}
                               className="text-destructive focus:text-destructive"
                             >
@@ -234,8 +293,8 @@ export function AgenciesTable() {
                           ) : (
                             <DropdownMenuItem
                               onClick={() => {
-                                setAgencyToVerify({ agency, action: "verify" });
-                                setVerifyDialogOpen(true);
+                                setAgencyAction({ agency, action: "verify" });
+                                setActionDialogOpen(true);
                               }}
                               className="text-green-600 focus:text-green-600"
                             >
@@ -243,6 +302,17 @@ export function AgenciesTable() {
                               Verify Agency
                             </DropdownMenuItem>
                           )}
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            onClick={() => {
+                              setAgencyAction({ agency, action: "delete" });
+                              setActionDialogOpen(true);
+                            }}
+                            className="text-destructive focus:text-destructive"
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Delete Agency
+                          </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>
@@ -318,26 +388,21 @@ export function AgenciesTable() {
         </DialogContent>
       </Dialog>
 
-      {/* Verification Confirmation Dialog */}
-      <AlertDialog open={verifyDialogOpen} onOpenChange={setVerifyDialogOpen}>
+      {/* Action Confirmation Dialog */}
+      <AlertDialog open={actionDialogOpen} onOpenChange={setActionDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>
-              {agencyToVerify?.action === "verify" ? "Verify Agency" : "Revoke Verification"}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {agencyToVerify?.action === "verify"
-                ? `Are you sure you want to verify ${agencyToVerify?.agency.company_name}? This will give them full access to the platform.`
-                : `Are you sure you want to revoke verification for ${agencyToVerify?.agency.company_name}? This will limit their platform access.`}
-            </AlertDialogDescription>
+            <AlertDialogTitle>{dialogContent.title}</AlertDialogTitle>
+            <AlertDialogDescription>{dialogContent.description}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={processing}>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              onClick={handleVerificationAction}
-              className={agencyToVerify?.action === "revoke" ? "bg-destructive text-destructive-foreground hover:bg-destructive/90" : ""}
+              onClick={handleAction}
+              disabled={processing}
+              className={dialogContent.isDestructive ? "bg-destructive text-destructive-foreground hover:bg-destructive/90" : ""}
             >
-              {agencyToVerify?.action === "verify" ? "Verify" : "Revoke"}
+              {processing ? "Processing..." : dialogContent.buttonText}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

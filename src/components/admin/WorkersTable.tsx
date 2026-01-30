@@ -11,12 +11,13 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Search, Eye, MoreHorizontal } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Search, Eye, MoreHorizontal, Trash2 } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
@@ -26,6 +27,17 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { useToast } from "@/hooks/use-toast";
 
 interface WorkerProfile {
   id: string;
@@ -44,6 +56,10 @@ export function WorkersTable() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedWorker, setSelectedWorker] = useState<WorkerProfile | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [workerToDelete, setWorkerToDelete] = useState<WorkerProfile | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const { toast } = useToast();
 
   useEffect(() => {
     fetchWorkers();
@@ -62,6 +78,45 @@ export function WorkersTable() {
       console.error("Error fetching workers:", error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDeleteWorker = async () => {
+    if (!workerToDelete) return;
+
+    setDeleting(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error("Not authenticated");
+      }
+
+      const response = await supabase.functions.invoke("delete-user", {
+        body: { userId: workerToDelete.user_id },
+      });
+
+      if (response.error) {
+        throw new Error(response.error.message || "Failed to delete user");
+      }
+
+      toast({
+        title: "Worker Deleted",
+        description: `${workerToDelete.first_name} ${workerToDelete.last_name} has been removed from the platform.`,
+      });
+
+      // Remove from local state
+      setWorkers((prev) => prev.filter((w) => w.id !== workerToDelete.id));
+    } catch (error) {
+      console.error("Error deleting worker:", error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to delete worker.",
+        variant: "destructive",
+      });
+    } finally {
+      setDeleting(false);
+      setDeleteDialogOpen(false);
+      setWorkerToDelete(null);
     }
   };
 
@@ -168,6 +223,17 @@ export function WorkersTable() {
                             <Eye className="h-4 w-4 mr-2" />
                             View Details
                           </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            onClick={() => {
+                              setWorkerToDelete(worker);
+                              setDeleteDialogOpen(true);
+                            }}
+                            className="text-destructive focus:text-destructive"
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Delete Worker
+                          </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>
@@ -230,6 +296,29 @@ export function WorkersTable() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Worker</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete {workerToDelete?.first_name} {workerToDelete?.last_name}? 
+              This action cannot be undone and will permanently remove their account and all associated data.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteWorker}
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
