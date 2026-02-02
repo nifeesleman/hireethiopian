@@ -16,22 +16,7 @@ const AdminDashboard = () => {
   const navigate = useNavigate();
   const [currentView, setCurrentView] = useState<AdminView>("overview");
 
-  useEffect(() => {
-    if (!loading && !user) {
-      navigate("/login/admin");
-    }
-    if (!loading && role && role !== "admin") {
-      navigate("/");
-    }
-  }, [user, role, loading, navigate]);
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-      </div>
-    );
-  }
+  // Redirect is now handled by ProtectedRoute
 
   const handleSignOut = async () => {
     await signOut();

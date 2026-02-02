@@ -5,20 +5,23 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Eye, EyeOff, Mail, Lock, User, Building2, Shield } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Eye, EyeOff, Mail, Lock, User, Building2, Shield, AlertCircle, RefreshCw } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 
 const Login = () => {
   const { userType } = useParams<{ userType: string }>();
   const navigate = useNavigate();
-  const { signIn } = useAuth();
+  const { signIn, resendVerificationEmail } = useAuth();
   const { toast } = useToast();
   
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isResending, setIsResending] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [needsVerification, setNeedsVerification] = useState(false);
 
   const isWorker = userType === "worker";
   const isAdmin = userType === "admin";
@@ -28,8 +31,15 @@ const Login = () => {
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsLoading(true);
+    setNeedsVerification(false);
 
-    const { error } = await signIn(email, password);
+    const { error, needsVerification: requiresVerification } = await signIn(email, password);
+
+    if (requiresVerification) {
+      setNeedsVerification(true);
+      setIsLoading(false);
+      return;
+    }
 
     if (error) {
       toast({
@@ -50,6 +60,26 @@ const Login = () => {
     setIsLoading(false);
   };
 
+  const handleResendVerification = async () => {
+    setIsResending(true);
+    const { error } = await resendVerificationEmail(email);
+
+    if (error) {
+      toast({
+        title: "Failed to resend",
+        description: error.message,
+        variant: "destructive",
+      });
+    } else {
+      toast({
+        title: "Verification email sent",
+        description: "Please check your inbox and spam folder.",
+      });
+    }
+
+    setIsResending(false);
+  };
+
   return (
     <Layout>
       <div className="min-h-[calc(100vh-200px)] flex items-center justify-center py-12 px-4 bg-gradient-to-br from-background via-background to-accent">
@@ -65,6 +95,38 @@ const Login = () => {
                 Welcome back! Please enter your credentials.
               </p>
             </div>
+
+            {/* Email Verification Alert */}
+            {needsVerification && (
+              <Alert className="mb-6 border-amber-500/50 bg-amber-50 dark:bg-amber-950/20">
+                <AlertCircle className="h-4 w-4 text-amber-600" />
+                <AlertDescription className="text-amber-800 dark:text-amber-200">
+                  <span className="font-medium">Email not verified.</span>
+                  <p className="mt-1 text-sm">
+                    Please check your inbox and click the verification link before signing in.
+                  </p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="mt-3"
+                    onClick={handleResendVerification}
+                    disabled={isResending}
+                  >
+                    {isResending ? (
+                      <>
+                        <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                        Sending...
+                      </>
+                    ) : (
+                      <>
+                        <Mail className="h-4 w-4 mr-2" />
+                        Resend verification email
+                      </>
+                    )}
+                  </Button>
+                </AlertDescription>
+              </Alert>
+            )}
 
             {/* Form */}
             <form onSubmit={handleSubmit} className="space-y-5">

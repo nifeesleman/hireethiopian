@@ -10,21 +10,7 @@ const AgencyDashboard = () => {
   const { user, role, loading, signOut } = useAuth();
   const navigate = useNavigate();
 
-  useEffect(() => {
-    if (!loading && !user) {
-      navigate("/login/agency");
-    }
-  }, [user, loading, navigate]);
-
-  if (loading) {
-    return (
-      <Layout>
-        <div className="min-h-screen flex items-center justify-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-        </div>
-      </Layout>
-    );
-  }
+  // Redirect is now handled by ProtectedRoute
 
   const handleSignOut = async () => {
     await signOut();
