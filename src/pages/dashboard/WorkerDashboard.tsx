@@ -28,11 +28,7 @@ const WorkerDashboard = () => {
   const [profile, setProfile] = useState<WorkerProfile | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
 
-  useEffect(() => {
-    if (!loading && !user) {
-      navigate("/login/worker");
-    }
-  }, [user, loading, navigate]);
+  // Redirect is now handled by ProtectedRoute
 
   useEffect(() => {
     if (user) {

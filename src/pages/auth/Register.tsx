@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   Select,
   SelectContent,
@@ -12,19 +13,22 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Eye, EyeOff, Mail, Lock, User, Building2, Phone, MapPin } from "lucide-react";
+import { Eye, EyeOff, Mail, Lock, User, Building2, Phone, MapPin, CheckCircle, RefreshCw } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 
 const Register = () => {
   const { userType } = useParams<{ userType: string }>();
   const navigate = useNavigate();
-  const { signUp } = useAuth();
+  const { signUp, resendVerificationEmail } = useAuth();
   const { toast } = useToast();
   
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isResending, setIsResending] = useState(false);
   const [agreeTerms, setAgreeTerms] = useState(false);
+  const [registrationComplete, setRegistrationComplete] = useState(false);
+  const [registeredEmail, setRegisteredEmail] = useState("");
 
   // Form fields
   const [email, setEmail] = useState("");
@@ -60,6 +64,15 @@ const Register = () => {
       return;
     }
 
+    if (password.length < 6) {
+      toast({
+        title: "Password too short",
+        description: "Password must be at least 6 characters.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsLoading(true);
 
     const role = isWorker ? "worker" : "agency";
@@ -67,7 +80,7 @@ const Register = () => {
       ? { firstName, lastName, phone, primarySkill }
       : { companyName, contactPerson, position, phone, country };
 
-    const { error } = await signUp(email, password, role as "worker" | "agency", profileData);
+    const { error, needsVerification } = await signUp(email, password, role as "worker" | "agency", profileData);
 
     if (error) {
       toast({
@@ -75,6 +88,9 @@ const Register = () => {
         description: error.message,
         variant: "destructive",
       });
+    } else if (needsVerification) {
+      setRegisteredEmail(email);
+      setRegistrationComplete(true);
     } else {
       toast({
         title: "Account created!",
@@ -85,6 +101,86 @@ const Register = () => {
 
     setIsLoading(false);
   };
+
+  const handleResendVerification = async () => {
+    setIsResending(true);
+    const { error } = await resendVerificationEmail(registeredEmail);
+
+    if (error) {
+      toast({
+        title: "Failed to resend",
+        description: error.message,
+        variant: "destructive",
+      });
+    } else {
+      toast({
+        title: "Verification email sent",
+        description: "Please check your inbox and spam folder.",
+      });
+    }
+
+    setIsResending(false);
+  };
+
+  // Show success state after registration
+  if (registrationComplete) {
+    return (
+      <Layout>
+        <div className="min-h-[calc(100vh-200px)] flex items-center justify-center py-12 px-4 bg-gradient-to-br from-background via-background to-accent">
+          <div className="w-full max-w-md">
+            <div className="bg-card rounded-2xl p-8 shadow-lg border border-border text-center">
+              <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-xl bg-green-100 dark:bg-green-900/30">
+                <CheckCircle className="h-7 w-7 text-green-600 dark:text-green-400" />
+              </div>
+              <h1 className="text-2xl font-bold text-foreground mb-2">
+                Check your email
+              </h1>
+              <p className="text-muted-foreground mb-6">
+                We've sent a verification link to{" "}
+                <span className="font-medium text-foreground">{registeredEmail}</span>
+              </p>
+
+              <Alert className="mb-6 text-left">
+                <Mail className="h-4 w-4" />
+                <AlertDescription>
+                  Click the link in the email to verify your account. If you don't see it, check your spam folder.
+                </AlertDescription>
+              </Alert>
+
+              <div className="space-y-3">
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={handleResendVerification}
+                  disabled={isResending}
+                >
+                  {isResending ? (
+                    <>
+                      <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                      Sending...
+                    </>
+                  ) : (
+                    <>
+                      <Mail className="h-4 w-4 mr-2" />
+                      Resend verification email
+                    </>
+                  )}
+                </Button>
+
+                <Button
+                  variant="ghost"
+                  className="w-full"
+                  onClick={() => navigate(`/login/${userType}`)}
+                >
+                  Go to Login
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
 
   return (
     <Layout>
@@ -284,7 +380,7 @@ const Register = () => {
                   <Input
                     id="password"
                     type={showPassword ? "text" : "password"}
-                    placeholder="Create a password"
+                    placeholder="Create a password (min 6 characters)"
                     className="pl-10 pr-10"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}

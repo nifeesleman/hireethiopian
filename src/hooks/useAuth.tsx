@@ -9,14 +9,16 @@ interface AuthContextType {
   session: Session | null;
   role: UserRole | null;
   loading: boolean;
+  emailVerified: boolean;
   signUp: (
     email: string,
     password: string,
     role: UserRole,
     profileData: WorkerProfileData | AgencyProfileData
-  ) => Promise<{ error: Error | null }>;
-  signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
+  ) => Promise<{ error: Error | null; needsVerification: boolean }>;
+  signIn: (email: string, password: string) => Promise<{ error: Error | null; needsVerification: boolean }>;
   signOut: () => Promise<void>;
+  resendVerificationEmail: (email: string) => Promise<{ error: Error | null }>;
 }
 
 interface WorkerProfileData {
@@ -41,54 +43,74 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [role, setRole] = useState<UserRole | null>(null);
   const [loading, setLoading] = useState(true);
+  const [emailVerified, setEmailVerified] = useState(false);
+
+  const checkUserRole = async (userId: string) => {
+    try {
+      const { data: roleData } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", userId)
+        .maybeSingle();
+      
+      return roleData?.role as UserRole | null;
+    } catch (error) {
+      console.error("Error fetching user role:", error);
+      return null;
+    }
+  };
 
   useEffect(() => {
-    // Set up auth state listener BEFORE getting session
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
+    let isMounted = true;
 
-        if (session?.user) {
-          // Fetch user role
+    // Set up auth state listener BEFORE getting initial session
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, currentSession) => {
+        if (!isMounted) return;
+
+        setSession(currentSession);
+        setUser(currentSession?.user ?? null);
+        setEmailVerified(!!currentSession?.user?.email_confirmed_at);
+
+        if (currentSession?.user) {
+          // Use setTimeout to avoid potential deadlocks with Supabase
           setTimeout(async () => {
-            const { data: roleData } = await supabase
-              .from("user_roles")
-              .select("role")
-              .eq("user_id", session.user.id)
-              .maybeSingle();
-            
-            setRole(roleData?.role as UserRole | null);
+            if (!isMounted) return;
+            const userRole = await checkUserRole(currentSession.user.id);
+            if (isMounted) setRole(userRole);
           }, 0);
         } else {
           setRole(null);
         }
-        
-        setLoading(false);
       }
     );
 
     // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      
-      if (session?.user) {
-        supabase
-          .from("user_roles")
-          .select("role")
-          .eq("user_id", session.user.id)
-          .maybeSingle()
-          .then(({ data: roleData }) => {
-            setRole(roleData?.role as UserRole | null);
-            setLoading(false);
-          });
-      } else {
-        setLoading(false);
+    const initializeAuth = async () => {
+      try {
+        const { data: { session: initialSession } } = await supabase.auth.getSession();
+        
+        if (!isMounted) return;
+
+        setSession(initialSession);
+        setUser(initialSession?.user ?? null);
+        setEmailVerified(!!initialSession?.user?.email_confirmed_at);
+
+        if (initialSession?.user) {
+          const userRole = await checkUserRole(initialSession.user.id);
+          if (isMounted) setRole(userRole);
+        }
+      } catch (error) {
+        console.error("Error initializing auth:", error);
+      } finally {
+        if (isMounted) setLoading(false);
       }
-    });
+    };
+
+    initializeAuth();
 
     return () => {
+      isMounted = false;
       subscription.unsubscribe();
     };
   }, []);
@@ -98,14 +120,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     password: string,
     userRole: UserRole,
     profileData: WorkerProfileData | AgencyProfileData
-  ) => {
+  ): Promise<{ error: Error | null; needsVerification: boolean }> => {
     try {
-      // Sign up the user
+      // Sign up the user with email redirect
       const { data: authData, error: signUpError } = await supabase.auth.signUp({
         email,
         password,
         options: {
-          emailRedirectTo: window.location.origin,
+          emailRedirectTo: `${window.location.origin}/login/${userRole}`,
         },
       });
 
@@ -157,17 +179,55 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         if (agencyError) throw agencyError;
       }
 
-      return { error: null };
+      // Check if email confirmation is required
+      const needsVerification = !authData.user.email_confirmed_at;
+
+      return { error: null, needsVerification };
     } catch (error) {
-      return { error: error as Error };
+      return { error: error as Error, needsVerification: false };
     }
   };
 
-  const signIn = async (email: string, password: string) => {
+  const signIn = async (email: string, password: string): Promise<{ error: Error | null; needsVerification: boolean }> => {
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
+      });
+
+      if (error) throw error;
+
+      // Check if email is verified
+      const needsVerification = !data.user?.email_confirmed_at;
+      
+      if (needsVerification) {
+        // Sign out if email not verified
+        await supabase.auth.signOut();
+        return { error: null, needsVerification: true };
+      }
+
+      return { error: null, needsVerification: false };
+    } catch (error) {
+      return { error: error as Error, needsVerification: false };
+    }
+  };
+
+  const signOut = async () => {
+    await supabase.auth.signOut();
+    setUser(null);
+    setSession(null);
+    setRole(null);
+    setEmailVerified(false);
+  };
+
+  const resendVerificationEmail = async (email: string): Promise<{ error: Error | null }> => {
+    try {
+      const { error } = await supabase.auth.resend({
+        type: "signup",
+        email,
+        options: {
+          emailRedirectTo: `${window.location.origin}/login/worker`,
+        },
       });
 
       if (error) throw error;
@@ -177,16 +237,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const signOut = async () => {
-    await supabase.auth.signOut();
-    setUser(null);
-    setSession(null);
-    setRole(null);
-  };
-
   return (
     <AuthContext.Provider
-      value={{ user, session, role, loading, signUp, signIn, signOut }}
+      value={{ 
+        user, 
+        session, 
+        role, 
+        loading, 
+        emailVerified,
+        signUp, 
+        signIn, 
+        signOut,
+        resendVerificationEmail,
+      }}
     >
       {children}
     </AuthContext.Provider>
