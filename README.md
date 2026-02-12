@@ -1,73 +1,86 @@
-# Welcome to your Lovable project
+# HireEthiopian
 
-## Project info
+**Connecting Ethiopian Talent with Global Opportunity**
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+HireEthiopian is a trusted international recruitment platform that connects skilled Ethiopian workers with verified overseas employment opportunities. Legal, transparent, and designed to make international hiring safe and efficient.
 
-## How can I edit this code?
+🔗 **Live Demo:** [https://hireethiopian.lovable.app/](https://hireethiopian.lovable.app/)
 
-There are several ways of editing your application.
+## Features
 
-**Use Lovable**
+- **Verified Employers** – Every agency goes through a strict verification process to ensure safe and legal employment.
+- **Document Management** – Secure storage and management of CVs, certificates, and visa documents all in one place.
+- **Real-time Updates** – Track application status from selection to visa processing to final placement.
+- **24/7 Support** – Dedicated support team available around the clock to assist workers and agencies.
+- **Global Reach** – Access opportunities in 45+ countries across the Middle East, Europe, and beyond.
+- **Community** – Join a community of workers sharing experiences and supporting each other abroad.
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
+## Tech Stack
 
-Changes made via Lovable will be committed automatically to this repo.
+- [React](https://react.dev/) – UI library
+- [TypeScript](https://www.typescriptlang.org/) – Type-safe JavaScript
+- [Vite](https://vitejs.dev/) – Build tool
+- [Tailwind CSS](https://tailwindcss.com/) – Utility-first CSS
+- [shadcn/ui](https://ui.shadcn.com/) – Component library
+- [Supabase](https://supabase.com/) – Backend & authentication
+- [React Router](https://reactrouter.com/) – Client-side routing
+- [TanStack React Query](https://tanstack.com/query) – Data fetching
 
-**Use your preferred IDE**
+## Getting Started
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+### Prerequisites
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+- [Node.js](https://nodejs.org/) (v18 or higher recommended)
+- npm (comes with Node.js)
 
-Follow these steps:
+### Installation
 
 ```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+# Clone the repository
+git clone https://github.com/nifeesleman/hireethiopian.git
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+# Navigate to the project directory
+cd hireethiopian
 
-# Step 3: Install the necessary dependencies.
-npm i
+# Install dependencies
+npm install
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
+# Start the development server
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+The app will be available at `http://localhost:5173`.
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+### Available Scripts
 
-**Use GitHub Codespaces**
+| Command | Description |
+|---|---|
+| `npm run dev` | Start the development server |
+| `npm run build` | Build for production |
+| `npm run preview` | Preview the production build |
+| `npm run lint` | Run ESLint |
+| `npm run test` | Run tests |
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+## Project Structure
 
-## What technologies are used for this project?
+```
+src/
+├── components/       # Reusable UI components
+│   ├── admin/        # Admin dashboard components
+│   ├── auth/         # Authentication components
+│   ├── home/         # Landing page sections
+│   ├── layout/       # Layout components (header, footer)
+│   ├── ui/           # shadcn/ui primitives
+│   └── worker/       # Worker-specific components
+├── hooks/            # Custom React hooks
+├── integrations/     # Third-party integrations (Supabase)
+├── lib/              # Utility functions
+├── pages/            # Page-level components
+│   ├── auth/         # Login & registration pages
+│   └── dashboard/    # Role-based dashboards
+└── test/             # Test utilities
+```
 
-This project is built with:
+## License
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+This project is private.
