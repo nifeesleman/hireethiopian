@@ -1,6 +1,6 @@
 # HireEthiopian
 
-**Connecting Ethiopian Talent with Global Opportunity**
+**Connecting Ethiopian   Talent with Global Opportunity**
 
 HireEthiopian is a trusted international recruitment platform that connects skilled Ethiopian workers with verified overseas employment opportunities. Legal, transparent, and designed to make international hiring safe and efficient.
 
